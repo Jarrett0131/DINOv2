@@ -1,0 +1,26 @@
+model:
+  name: dinov2_vitb14
+  source: torchhub
+  freeze: true
+  image_size: 518
+  patch_size: 14
+  feature_token: cls
+
+data:
+  dataset: imagefolder
+  data_root: data
+  train_split: train
+  test_split: test
+  batch_size: 32
+  num_workers: 4
+
+eval:
+  knn_k_values: [1, 5, 10, 20]
+  linear_probe:
+    max_iter: 2000
+    C: 1.0
+    solver: lbfgs
+
+output:
+  output_dir: outputs/dinov2_vitb14
+  summary_csv: results/summary.csv
