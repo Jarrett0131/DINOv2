@@ -1,13 +1,8 @@
 # DINOv2 Frozen Feature Evaluation
 
-本项目复现 DINOv2 的下游使用方式：不重新预训练，不 full fine-tuning，只加载预训练
-DINOv2 ViT backbone，冻结参数，提取 CLS token 特征，并在下游任务上做评估。
-
-覆盖三个实验场景：
-
-1. 细粒度分类：CUB-200-2011 / Stanford Cars + Linear Probe。
-2. k-NN 零样本/无训练迁移：Oxford Flowers 102 / CUB + cosine k-NN。
-3. 域偏移鲁棒性：源域训练好的 linear probe 或 k-NN 特征库直接测试 Sketch/Cartoon 目标域。
+This project reproduces a DINOv2 downstream evaluation workflow without pretraining:
+load a pretrained DINOv2 ViT backbone, freeze it, extract CLS-token image features,
+and evaluate linear probing, cosine k-NN, and domain-shift robustness.
 
 ## Install
 
@@ -15,14 +10,43 @@ DINOv2 ViT backbone，冻结参数，提取 CLS token 特征，并在下游任�
 pip install -r requirements.txt
 ```
 
-默认模型是 `dinov2_vitb14`，通过 `torch.hub` 从 `facebookresearch/dinov2` 加载。首次运行会下载权重。
+The default backbone is `dinov2_vitb14`, loaded through `torch.hub` from
+`facebookresearch/dinov2`. The first run may download pretrained weights.
 
-## Dataset Layout
+## Download Datasets
 
-推荐把 CUB、Cars、ImageNet-Sketch 子集或自定义数据整理成 `ImageFolder` 结构：
+All required datasets are downloaded and organized under `src/data/`:
+
+```bash
+bash scripts/download_datasets.sh
+```
+
+Expected dataset layout:
 
 ```text
-data_root/
+src/data/
+  CUB_200_2011/
+  StanfordCars/
+  Flowers102/
+  ImageNetSketch/
+  README_DATASETS.md
+```
+
+Download logs are written to:
+
+```text
+logs/download.log
+```
+
+The script uses `wget -c`, retries failed downloads, extracts archives, removes
+downloaded archives, prints dataset sizes, and shows the final directory tree.
+
+## Dataset Notes
+
+The evaluation code is easiest to use with `ImageFolder`-style splits:
+
+```text
+dataset_root/
   train/
     class_a/*.jpg
     class_b/*.jpg
@@ -31,7 +55,11 @@ data_root/
     class_b/*.jpg
 ```
 
-域偏移实验需要源域和目标域两个根目录：
+Some official archives, such as CUB and Stanford Cars, may need a split-conversion
+step if you want direct `ImageFolder` training and testing. The download script
+keeps the official raw dataset structure under `src/data/`.
+
+For domain shift evaluation:
 
 ```text
 source_root/train/class_x/*.jpg
@@ -39,46 +67,51 @@ source_root/test/class_x/*.jpg
 target_root/test/class_x/*.jpg
 ```
 
+ImageNet-Sketch is intended for subset evaluation in this project.
+
 ## Scenario 1: Fine-Grained Classification
 
-提取 CUB 或 Stanford Cars 的 train/test 特征：
+Extract train/test features:
 
 ```bash
-bash scripts/run_extract.sh imagefolder /path/to/CUB outputs/cub
+bash scripts/run_extract.sh imagefolder src/data/CUB_200_2011 outputs/cub
 ```
 
-训练 Linear Probe 并报告 Top-1 Accuracy、confusion matrix 和分类结果表：
+Train and evaluate a linear probe:
 
 ```bash
-bash scripts/run_linear_probe.sh imagefolder /path/to/CUB outputs/cub
+bash scripts/run_linear_probe.sh imagefolder src/data/CUB_200_2011 outputs/cub
 ```
 
-直接运行：
+Direct command:
 
 ```bash
 python -m src.eval.linear_probe \
   --dataset imagefolder \
-  --data_root /path/to/CUB \
+  --data_root src/data/CUB_200_2011 \
   --model_name dinov2_vitb14 \
   --batch_size 32 \
   --output_dir outputs/cub \
   --device cuda
 ```
 
+Outputs include Top-1 accuracy, `linear_probe_confusion_matrix.csv`, and
+`linear_probe_report.csv`.
+
 ## Scenario 2: k-NN Zero-Shot / No-Training Transfer
 
-不训练分类头，只用 train split 构建特征库，对 test split 做 cosine k-NN：
+Run cosine k-NN with `k=1,5,10,20`:
 
 ```bash
-bash scripts/run_knn.sh imagefolder /path/to/flowers outputs/flowers_knn
+bash scripts/run_knn.sh imagefolder src/data/Flowers102 outputs/flowers_knn
 ```
 
-默认比较 `k=1,5,10,20`：
+Direct command:
 
 ```bash
 python -m src.eval.knn_eval \
   --dataset imagefolder \
-  --data_root /path/to/flowers \
+  --data_root src/data/Flowers102 \
   --model_name dinov2_vitb14 \
   --batch_size 32 \
   --output_dir outputs/flowers_knn \
@@ -88,19 +121,20 @@ python -m src.eval.knn_eval \
 
 ## Scenario 3: Domain Shift Robustness
 
-源域训练 linear probe，直接测试目标域：
+Train a source-domain linear probe or build a source-domain k-NN feature bank,
+then evaluate directly on the target domain:
 
 ```bash
 bash scripts/run_domain_shift.sh imagefolder /path/to/source /path/to/target outputs/domain_shift
 ```
 
-直接运行：
+Direct command:
 
 ```bash
 python -m src.eval.domain_shift_eval \
   --dataset imagefolder \
   --source_root /path/to/source \
-  --target_root /path/to/target \
+  --target_root src/data/ImageNetSketch \
   --model_name dinov2_vitb14 \
   --batch_size 32 \
   --output_dir outputs/domain_shift \
@@ -108,23 +142,11 @@ python -m src.eval.domain_shift_eval \
   --method linear
 ```
 
-使用 k-NN 特征库做域偏移：
-
-```bash
-python -m src.eval.domain_shift_eval \
-  --dataset imagefolder \
-  --source_root /path/to/source \
-  --target_root /path/to/target \
-  --output_dir outputs/domain_shift_knn \
-  --method knn \
-  --k 10
-```
-
-输出包括 `source_accuracy`、`target_accuracy` 和 `accuracy_drop`。
+The script reports source accuracy, target accuracy, and accuracy drop.
 
 ## Visualization
 
-t-SNE：
+t-SNE:
 
 ```bash
 python -m src.visualize.tsne \
@@ -132,7 +154,7 @@ python -m src.visualize.tsne \
   --output outputs/cub/tsne.png
 ```
 
-Attention map：
+Attention map:
 
 ```bash
 python -m src.visualize.attention_map \
@@ -142,7 +164,7 @@ python -m src.visualize.attention_map \
   --device cuda
 ```
 
-Patch feature PCA：
+Patch feature PCA:
 
 ```bash
 python -m src.visualize.attention_map \
@@ -153,13 +175,13 @@ python -m src.visualize.attention_map \
 
 ## Outputs
 
-特征文件：
+Feature files:
 
 - `train_cls_features.pt`
 - `test_cls_features.pt`
 - `train_patch_tokens.pt` / `test_patch_tokens.pt` when `--save_patch_tokens` is set
 
-评估文件：
+Evaluation files:
 
 - `linear_probe_metrics.csv`
 - `linear_probe_confusion_matrix.csv`
@@ -168,7 +190,7 @@ python -m src.visualize.attention_map \
 - `domain_shift_metrics.csv`
 - `results/summary.csv`
 
-`results/summary.csv` 字段：
+`results/summary.csv` columns:
 
 ```text
 scenario,dataset,method,backbone,accuracy,top1,k,feature_dim
@@ -176,8 +198,8 @@ scenario,dataset,method,backbone,accuracy,top1,k,feature_dim
 
 ## Notes
 
-- Backbone 始终冻结，`requires_grad=False`。
-- 图像级特征使用 CLS token。
-- 支持 GPU；当 `--device cuda` 但 CUDA 不可用时会自动退到 CPU。
-- 可通过 `--force_extract` 重新抽取特征。
-- 可视化命令需要已有特征文件或单张输入图像。仓库提供代码入口；实际图片由你的数据集运行后生成。
+- The DINOv2 backbone is always frozen with `requires_grad=False`.
+- CLS token features are used as image-level representations.
+- Patch tokens can optionally be saved for attention or PCA visualization.
+- CUDA is supported; CPU is used automatically when CUDA is unavailable.
+- Use `--force_extract` to regenerate cached features.
