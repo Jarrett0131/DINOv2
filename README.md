@@ -1,212 +1,138 @@
-# DINOv2 冻结特征下游评估框架
+# DINOv2 Frozen Feature Evaluation
 
-本项目用于复现 DINOv2 的下游使用方式：不重新预训练 DINOv2，不做 full fine-tuning，只加载预训练 ViT backbone，冻结骨干网络，提取 CLS token 作为图像级特征，并在下游任务上完成评估。
+本项目用于复现“DINOv2 在细粒度分类与零样本迁移场景下的特征评估”。DINOv2 始终作为 frozen backbone，只训练线性分类头，并评估 k-NN 与 t-SNE 可视化。
 
-项目覆盖三个实验场景：
+## 目录结构
 
-1. 细粒度分类：CUB-200-2011 / Stanford Cars + Linear Probe。
-2. k-NN 零样本/无训练迁移：Oxford Flowers 102 / CUB + cosine k-NN。
-3. 域偏移鲁棒性：源域 linear probe 或 k-NN 特征库直接测试 ImageNet-Sketch subset 等目标域。
+```text
+.
+├── datasets/          # 数据集构建入口，复用 src/data
+├── models/            # DINOv2 backbone 入口
+├── train/             # Linear Probe 训练入口
+├── eval/              # k-NN 等评估入口
+├── visualize/         # t-SNE 可视化入口
+├── outputs/           # 实验输出
+├── configs/           # 默认实验配置
+├── src/               # 主要实现代码
+└── main.py            # 统一实验入口
+```
 
-## 环境安装
+## 安装
 
 ```bash
 pip install -r requirements.txt
 ```
 
-默认 backbone 为 `dinov2_vitb14`，通过 `torch.hub` 从 `facebookresearch/dinov2` 加载。首次运行会自动下载预训练权重。
+首次运行会通过 `torch.hub` 从 `facebookresearch/dinov2` 加载 `dinov2_vitb14` 权重。
 
-## 下载数据集
+## 数据集
 
-所有数据集统一放在 `src/data/` 下：
+默认数据根目录是 `src/data`。当前代码支持：
 
-```bash
-bash scripts/download_datasets.sh
-```
+- CUB-200-2011：官方 `images.txt`、`image_class_labels.txt`、`train_test_split.txt`
+- Oxford Flowers 102：`jpg/`、`imagelabels.mat`、`setid.mat`
+- Stanford Cars：需要 `cars_train`、`cars_test` 以及官方 `.mat` 标注文件
+- 普通 ImageFolder：`root/train/class/*.jpg` 与 `root/test/class/*.jpg`
 
-下载完成后的目标结构：
+所有图像默认 resize 到 `224x224`，并使用 ImageNet mean/std 归一化。
 
-```text
-src/data/
-  CUB_200_2011/
-  StanfordCars/
-  Flowers102/
-  ImageNetSketch_subset/
-    class_1/
-    class_2/
-    ...
-    class_50/
-    subset_classes.txt
-  README_DATASETS.md
-```
+## 一键运行 baseline
 
-下载日志保存在：
-
-```text
-logs/download.log
-```
-
-脚本会自动创建目录、断点续传下载、失败重试、解压、删除压缩包、统计数据集大小，并打印目录结构。
-
-由于课程项目资源限制，我们使用 ImageNet-Sketch subset 进行 domain shift evaluation。脚本只保留前 50 个类别，并生成：
-
-```text
-src/data/ImageNetSketch_subset/subset_classes.txt
-```
-
-## 数据集说明
-
-下载脚本会保留官方原始数据结构。为了直接运行本项目的 `imagefolder` 评估入口，推荐后续整理成如下结构：
-
-```text
-dataset_root/
-  train/
-    class_a/*.jpg
-    class_b/*.jpg
-  test/
-    class_a/*.jpg
-    class_b/*.jpg
-```
-
-域偏移实验推荐结构：
-
-```text
-source_root/train/class_x/*.jpg
-source_root/test/class_x/*.jpg
-target_root/test/class_x/*.jpg
-```
-
-ImageNet-Sketch 在本项目中只使用 subset evaluation，避免一次性下载和评估完整 ImageNet benchmark。
-
-## 场景一：细粒度分类
-
-提取 CUB 或 Stanford Cars 的 train/test 特征：
+CUB:
 
 ```bash
-bash scripts/run_extract.sh imagefolder src/data/CUB_200_2011 outputs/cub
-```
-
-训练并评估 Linear Probe：
-
-```bash
-bash scripts/run_linear_probe.sh imagefolder src/data/CUB_200_2011 outputs/cub
-```
-
-直接运行 Python 命令：
-
-```bash
-python -m src.eval.linear_probe \
-  --dataset imagefolder \
-  --data_root src/data/CUB_200_2011 \
-  --model_name dinov2_vitb14 \
-  --batch_size 32 \
-  --output_dir outputs/cub \
+python main.py ^
+  --mode all ^
+  --dataset cub ^
+  --data_root src/data/CUB_200_2011 ^
+  --output_dir outputs/cub_dinov2_vitb14 ^
+  --batch_size 64 ^
+  --epochs 20 ^
   --device cuda
 ```
 
-输出包括 Top-1 Accuracy、confusion matrix 和分类结果表。
-
-## 场景二：k-NN 零样本/无训练迁移
-
-使用 train split 构建特征库，不训练分类头，对 test split 做 cosine k-NN：
+Flowers102:
 
 ```bash
-bash scripts/run_knn.sh imagefolder src/data/Flowers102 outputs/flowers_knn
-```
-
-默认比较 `k=1,5,10,20`：
-
-```bash
-python -m src.eval.knn_eval \
-  --dataset imagefolder \
-  --data_root src/data/Flowers102 \
-  --model_name dinov2_vitb14 \
-  --batch_size 32 \
-  --output_dir outputs/flowers_knn \
-  --device cuda \
-  --k_values 1 5 10 20
-```
-
-## 场景三：域偏移鲁棒性
-
-在源域训练 linear probe 或构建 k-NN 特征库，然后直接测试目标域：
-
-```bash
-bash scripts/run_domain_shift.sh imagefolder /path/to/source /path/to/target outputs/domain_shift
-```
-
-直接运行：
-
-```bash
-python -m src.eval.domain_shift_eval \
-  --dataset imagefolder \
-  --source_root /path/to/source \
-  --target_root src/data/ImageNetSketch_subset \
-  --model_name dinov2_vitb14 \
-  --batch_size 32 \
-  --output_dir outputs/domain_shift \
-  --device cuda \
-  --method linear
-```
-
-脚本会报告源域 accuracy、目标域 accuracy 和 accuracy drop。
-
-## 可视化
-
-t-SNE：
-
-```bash
-python -m src.visualize.tsne \
-  --features outputs/cub/test_cls_features.pt \
-  --output outputs/cub/tsne.png
-```
-
-Attention Map：
-
-```bash
-python -m src.visualize.attention_map \
-  --image /path/to/image.jpg \
-  --model_name dinov2_vitb14 \
-  --output outputs/attention_map.png \
+python main.py ^
+  --mode all ^
+  --dataset flowers ^
+  --data_root src/data/Flowers102 ^
+  --output_dir outputs/flowers_dinov2_vitb14 ^
+  --batch_size 64 ^
+  --epochs 20 ^
   --device cuda
 ```
 
-Patch Feature PCA：
+只跑某个阶段：
 
 ```bash
-python -m src.visualize.attention_map \
-  --image /path/to/image.jpg \
-  --output outputs/patch_pca.png \
-  --mode patch_pca
+python main.py --mode linear --dataset cub --data_root src/data/CUB_200_2011 --output_dir outputs/cub
+python main.py --mode knn --dataset flowers --data_root src/data/Flowers102 --output_dir outputs/flowers
+python main.py --mode tsne --dataset cub --data_root src/data/CUB_200_2011 --output_dir outputs/cub
 ```
 
-## 输出文件
+## 实验细节
 
-特征文件：
+Linear Probe:
 
-- `train_cls_features.pt`
-- `test_cls_features.pt`
-- 使用 `--save_patch_tokens` 时生成 `train_patch_tokens.pt` / `test_patch_tokens.pt`
+- backbone: `dinov2_vitb14`
+- feature: CLS token, shape `[batch, feature_dim]`
+- backbone: `requires_grad=False`
+- classifier: `nn.Linear(feature_dim, num_classes)`
+- optimizer: AdamW
+- lr: `1e-3`
+- epochs: `20`
+- batch size: `64`
+- 自动保存 best checkpoint
 
-评估文件：
+k-NN:
 
-- `linear_probe_metrics.csv`
-- `linear_probe_confusion_matrix.csv`
-- `linear_probe_report.csv`
-- `knn_metrics.csv`
-- `domain_shift_metrics.csv`
-- `results/summary.csv`
+- `sklearn.neighbors.KNeighborsClassifier`
+- default `k=10`
+- default metric: cosine
+- 使用 train CLS feature fit，test CLS feature predict
 
-`results/summary.csv` 字段：
+t-SNE:
+
+- `sklearn.manifold.TSNE`
+- 默认随机采样最多 2000 个 test features
+- 输出 PNG 到 `outputs/.../tsne/`
+
+## 输出说明
+
+典型输出目录：
 
 ```text
-scenario,dataset,method,backbone,accuracy,top1,k,feature_dim
+outputs/cub_dinov2_vitb14/
+├── train_cls_features.pt
+├── test_cls_features.pt
+├── linear_probe_metrics.csv
+├── linear_probe_confusion_matrix.csv
+├── linear_probe_report.csv
+├── linear_probe_summary.json
+├── knn_metrics.csv
+├── knn_k10_confusion_matrix.csv
+├── knn_k10_report.csv
+├── knn_summary.json
+├── checkpoints/
+│   └── best_linear_probe.pt
+└── tsne/
+    └── test_tsne.png
 ```
 
-## 注意事项
+全局汇总会追加到：
 
-- DINOv2 backbone 始终冻结，`requires_grad=False`。
-- 图像级特征默认使用 CLS token。
-- 可选保存 patch tokens，用于 attention map 或 PCA 可视化。
-- 支持 GPU；如果 CUDA 不可用，会自动退到 CPU。
-- 使用 `--force_extract` 可以重新抽取特征。
+```text
+results/summary.csv
+```
+
+## 快速 smoke test
+
+为了只检查代码链路，可以限制 batch 数：
+
+```bash
+python main.py --mode linear --dataset cub --data_root src/data/CUB_200_2011 --output_dir outputs/smoke --epochs 1 --max_train_batches 1 --max_eval_batches 1
+```
+
+正式结果请去掉 `--max_train_batches` 和 `--max_eval_batches`。

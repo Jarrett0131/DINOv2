@@ -1,0 +1,16 @@
+Epoch 006/20: train_acc=0.9893 test_acc=0.8795 train_loss=0.0614 test_loss=0.4550
+Epoch 007/20: train_acc=0.9942 test_acc=0.8804 train_loss=0.0460 test_loss=0.4436
+Epoch 008/20: train_acc=0.9967 test_acc=0.8797 train_loss=0.0359 test_loss=0.4496
+Epoch 009/20: train_acc=0.9985 test_acc=0.8776 train_loss=0.0276 test_loss=0.4589
+Epoch 010/20: train_acc=0.9997 test_acc=0.8816 train_loss=0.0226 test_loss=0.4477
+Epoch 011/20: train_acc=0.9997 test_acc=0.8800 train_loss=0.0197 test_loss=0.4525
+Epoch 012/20: train_acc=0.9993 test_acc=0.8806 train_loss=0.0167 test_loss=0.4532
+Epoch 013/20: train_acc=0.9998 test_acc=0.8787 train_loss=0.0145 test_loss=0.4570
+Epoch 014/20: train_acc=1.0000 test_acc=0.8845 train_loss=0.0124 test_loss=0.4572
+Epoch 015/20: train_acc=0.9998 test_acc=0.8828 train_loss=0.0117 test_loss=0.4634
+Epoch 016/20: train_acc=1.0000 test_acc=0.8840 train_loss=0.0098 test_loss=0.4608
+Epoch 017/20: train_acc=1.0000 test_acc=0.8814 train_loss=0.0089 test_loss=0.4666
+Epoch 018/20: train_acc=1.0000 test_acc=0.8837 train_loss=0.0080 test_loss=0.4689
+Epoch 019/20: train_acc=1.0000 test_acc=0.8816 train_loss=0.0073 test_loss=0.4729
+Epoch 020/20: train_acc=1.0000 test_acc=0.8832 train_loss=0.0067 test_loss=0.4757
+Best linear probe top-1 accuracy: 0.8845

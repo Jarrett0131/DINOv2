@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DATASET="${1:-imagefolder}"
-DATA_ROOT="${2:-data}"
+DATASET="${1:-auto}"
+DATA_ROOT="${2:-src/data/CUB_200_2011}"
 OUTPUT_DIR="${3:-outputs/extract}"
 MODEL_NAME="${MODEL_NAME:-dinov2_vitb14}"
-BATCH_SIZE="${BATCH_SIZE:-32}"
+BATCH_SIZE="${BATCH_SIZE:-64}"
 DEVICE="${DEVICE:-cuda}"
 
 python -m src.features.extract_features \
@@ -15,4 +15,5 @@ python -m src.features.extract_features \
   --batch_size "$BATCH_SIZE" \
   --output_dir "$OUTPUT_DIR" \
   --device "$DEVICE" \
+  --image_size "${IMAGE_SIZE:-224}" \
   --save_patch_tokens

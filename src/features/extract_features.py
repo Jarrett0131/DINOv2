@@ -11,6 +11,12 @@ from src.models.dinov2_model import load_dinov2
 from src.utils.seed import set_seed
 
 
+def resolve_device(device: str) -> str:
+    if device == "cuda" and not torch.cuda.is_available():
+        return "cpu"
+    return device
+
+
 def extract_split_features(
     dataset: str,
     data_root: str,
@@ -19,10 +25,12 @@ def extract_split_features(
     batch_size: int,
     output_dir: str | Path,
     device: str,
-    image_size: int = 518,
+    image_size: int = 224,
     num_workers: int = 4,
     save_patch_tokens: bool = False,
+    seed: int = 42,
 ) -> dict:
+    device = resolve_device(device)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     loader = build_loader(
@@ -33,6 +41,7 @@ def extract_split_features(
         num_workers=num_workers,
         image_size=image_size,
         shuffle=False,
+        seed=seed,
     )
     model = load_dinov2(model_name=model_name, device=device)
 
@@ -58,6 +67,7 @@ def extract_split_features(
         "model_name": model_name,
         "dataset": dataset,
         "split": split,
+        "image_size": image_size,
     }
     torch.save(payload, output_dir / f"{split}_cls_features.pt")
 
@@ -83,7 +93,7 @@ def main() -> None:
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--output_dir", default="outputs/dinov2_vitb14")
     parser.add_argument("--device", default="cuda")
-    parser.add_argument("--image_size", type=int, default=518)
+    parser.add_argument("--image_size", type=int, default=224)
     parser.add_argument("--num_workers", type=int, default=4)
     parser.add_argument("--splits", nargs="+", default=["train", "test"])
     parser.add_argument("--save_patch_tokens", action="store_true")
@@ -103,6 +113,7 @@ def main() -> None:
             image_size=args.image_size,
             num_workers=args.num_workers,
             save_patch_tokens=args.save_patch_tokens,
+            seed=args.seed,
         )
 
 
