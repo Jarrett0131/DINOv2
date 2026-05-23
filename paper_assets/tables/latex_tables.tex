@@ -1,0 +1,82 @@
+% 不同模型/方法 Accuracy 对比
+
+\begin{table}
+\caption{不同模型/方法 Accuracy 对比}
+\label{tab:accuracy_comparison}
+\begin{tabular}{llllr}
+\toprule
+Dataset & Backbone & Method & Top-1 Accuracy (\%) & Feature Dim \\
+\midrule
+CUB & dinov2\_vitb14 & Linear Probe & 88.45 & 768 \\
+CUB & dinov2\_vitb14 & k-NN (cosine, k=10) & 85.57 & 768 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+
+% Linear Probe 与 k-NN 对比
+
+\begin{table}
+\caption{Linear Probe 与 k-NN 对比}
+\label{tab:linear_probe_vs_knn}
+\begin{tabular}{llll}
+\toprule
+Dataset & Linear Probe (\%) & k-NN (\%) & Delta (\%) \\
+\midrule
+CUB & 88.45 & 85.57 & 2.88 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+
+% 参数量对比
+
+\begin{table}
+\caption{参数量对比}
+\label{tab:parameter_comparison}
+\begin{tabular}{llll}
+\toprule
+Model & Parameters (M) & Trainable in Linear Probe (M) & Source \\
+\midrule
+DINOv2 ViT-B/14 backbone & 86.58 & 0.00 & Measured from torch hub model \\
+Linear classifier head & 0.15 & 0.15 & 768 x 200 + 200 checkpoint metadata \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+
+% 推理速度对比
+
+\begin{table}
+\caption{推理速度对比}
+\label{tab:inference_speed}
+\begin{tabular}{llrlll}
+\toprule
+Backbone & Device & Batch Size & Images/s & Latency (ms/image) & Note \\
+\midrule
+dinov2\_vitb14 & cuda & 64 & 32.56 & 30.71 & Measured on 20 test batches after 2 warmup batches; includes image transfer and backbone forward only. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+
+% 不同数据集结果
+
+\begin{table}
+\caption{不同数据集结果}
+\label{tab:dataset_results}
+\begin{tabular}{llll}
+\toprule
+Dataset & Backbone & Method & Top-1 Accuracy (\%) \\
+\midrule
+CUB & dinov2\_vitb14 & Linear Probe & 88.45 \\
+CUB & dinov2\_vitb14 & k-NN (cosine, k=10) & 85.57 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+

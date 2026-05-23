@@ -1,0 +1,8 @@
+{
+  "top1_accuracy": 0.8845357266137384,
+  "best_top1_accuracy": 0.8845357266137384,
+  "final_eval_accuracy": 0.8845357266137384,
+  "feature_dim": 768,
+  "num_classes": 200,
+  "checkpoint": "outputs\\cub_dinov2_vitb14\\checkpoints\\best_linear_probe.pt"
+}

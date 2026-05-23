@@ -1,0 +1,2 @@
+Backbone,Device,Batch Size,Images/s,Latency (ms/image),Note
+dinov2_vitb14,cuda,64,32.56,30.71,Measured on 20 test batches after 2 warmup batches; includes image transfer and backbone forward only.

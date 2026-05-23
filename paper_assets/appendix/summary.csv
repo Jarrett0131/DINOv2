@@ -1,0 +1,3 @@
+scenario,dataset,method,backbone,accuracy,top1,k,feature_dim
+fine_grained_classification,cub,linear_probe,dinov2_vitb14,0.8845357266137384,0.8845357266137384,,768
+knn_zero_shot_transfer,cub,sklearn_knn_cosine,dinov2_vitb14,0.855712806351398,0.855712806351398,10,768

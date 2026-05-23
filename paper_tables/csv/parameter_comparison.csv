@@ -1,0 +1,3 @@
+Model,Parameters (M),Trainable in Linear Probe (M),Source
+DINOv2 ViT-B/14 backbone,86.58,0.00,Measured from torch hub model
+Linear classifier head,0.15,0.15,768 x 200 + 200 checkpoint metadata

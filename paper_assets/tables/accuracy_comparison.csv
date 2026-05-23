@@ -1,0 +1,3 @@
+Dataset,Backbone,Method,Top-1 Accuracy (%),Feature Dim
+CUB,dinov2_vitb14,Linear Probe,88.45,768
+CUB,dinov2_vitb14,"k-NN (cosine, k=10)",85.57,768
